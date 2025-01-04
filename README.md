@@ -127,7 +127,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - [PyDrive Documentation](https://pythonhosted.org/PyDrive/)
 - [Google Drive API](https://developers.google.com/drive)
 ```
-
----
-
-Let me know if you want additional sections or adjustments!
