@@ -3,6 +3,7 @@ from pydrive.drive import GoogleDrive
 from pathlib import Path
 import logging
 from datetime import datetime
+from tqdm import tqdm
 
 # Configure logging to file and console
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -20,6 +21,9 @@ logging.basicConfig(
 # Paths to be customized by the user
 LINKS_FILE_PATH = r'./download_links.txt'  # Path to the file containing Google Drive folder links
 OUTPUT_DIRECTORY_PATH = r'./Downloaded_Files'  # Output directory for downloaded files
+
+# Global progress bar
+progress_bar = None
 
 
 def authenticate_drive():
@@ -51,19 +55,43 @@ def authenticate_drive():
         raise
 
 
-def download_google_drive_folder(folder_id, output_directory):
+def count_files(folder_id, drive):
+    """
+    Recursively counts all files in a Google Drive folder and its subfolders.
+    
+    Args:
+        folder_id (str): ID of the Google Drive folder.
+        drive (GoogleDrive): Authenticated GoogleDrive object.
+    
+    Returns:
+        int: Total number of files in the folder and its subfolders.
+    """
+    try:
+        file_list = drive.ListFile({'q': f"'{folder_id}' in parents and trashed=false"}).GetList()
+    except Exception as e:
+        logging.error(f"Failed to fetch file list for folder ID {folder_id}: {e}")
+        return 0
+
+    count = 0
+    for file in file_list:
+        if file['mimeType'] == 'application/vnd.google-apps.folder':
+            count += count_files(file['id'], drive)
+        else:
+            count += 1
+    return count
+
+
+def download_google_drive_folder(folder_id, output_directory, drive):
     """
     Downloads all files from a specified Google Drive folder, avoiding redundant folder structures
-    and skipping files that already exist.
+    and skipping files that already exist. Updates the global progress bar.
     
     Args:
         folder_id (str): ID of the Google Drive folder.
         output_directory (str): Path to save downloaded files.
+        drive (GoogleDrive): Authenticated GoogleDrive object.
     """
-    drive = authenticate_drive()
-
     try:
-        # Get folder metadata to create a subfolder
         folder_metadata = drive.CreateFile({'id': folder_id})
         folder_name = folder_metadata['title']
         logging.info(f"Processing folder: {folder_name}")
@@ -78,33 +106,29 @@ def download_google_drive_folder(folder_id, output_directory):
         folder_output_path.mkdir(parents=True, exist_ok=True)
 
     try:
-        # List all files in the folder
         file_list = drive.ListFile({'q': f"'{folder_id}' in parents and trashed=false"}).GetList()
     except Exception as e:
         logging.error(f"Failed to fetch file list for folder ID {folder_id}: {e}")
         return
 
     for file in file_list:
-        logging.info(f"Processing: {file['title']} ({file['mimeType']})")
         try:
-            # If the file is a subfolder, recursively download its contents
             if file['mimeType'] == 'application/vnd.google-apps.folder':
-                logging.info(f"Entering subfolder: {file['title']}")
-                download_google_drive_folder(file['id'], folder_output_path)
+                download_google_drive_folder(file['id'], folder_output_path, drive)
             else:
                 # Determine the target file path
                 file_path = folder_output_path / file['title']
-                
+
                 # Skip if the file already exists
                 if file_path.exists():
                     logging.info(f"Skipped: {file['title']} (already exists)")
+                    progress_bar.update(1)  # Update progress bar even if skipping
                     continue
 
-                # For downloadable files
+                # Download the file
                 if 'downloadUrl' in file:
                     file.GetContentFile(str(file_path))
                     logging.info(f"Downloaded: {file['title']} to {file_path}")
-                # For Google Docs/Sheets, export them as PDF
                 elif 'exportLinks' in file:
                     export_link = file['exportLinks'].get('application/pdf')
                     if export_link:
@@ -116,8 +140,42 @@ def download_google_drive_folder(folder_id, output_directory):
                         logging.warning(f"No export link available for {file['title']}. Skipping.")
                 else:
                     logging.warning(f"Skipped: {file['title']} (not downloadable or exportable)")
+
+                progress_bar.update(1)
         except Exception as e:
             logging.error(f"Failed to process {file['title']}: {e}")
+
+
+def google_drive_bulk_download(links_file_path, output_directory_path):
+    """
+    Bulk downloads all files from Google Drive folders listed in a file.
+    Displays a progress bar during the download process.
+    
+    Args:
+        links_file_path (str): Path to the file containing Google Drive folder links.
+        output_directory_path (str): Path to save downloaded files.
+    """
+    drive = authenticate_drive()
+
+    # Step 1: Extract folder IDs and count all files
+    folder_ids = extract_folder_ids(links_file_path)
+    if not folder_ids:
+        logging.error("No valid folder IDs found. Exiting.")
+        return
+
+    logging.info("Counting all files in the provided folders. This may take some time, please be patient...")
+    total_files = sum(count_files(folder_id, drive) for folder_id in folder_ids)
+    logging.info(f"Total files to download: {total_files}")
+
+    # Step 2: Initialize progress bar
+    global progress_bar
+    progress_bar = tqdm(total=total_files, desc="Downloading Files", unit="file")
+
+    # Step 3: Download files
+    for folder_id in folder_ids:
+        download_google_drive_folder(folder_id, output_directory_path, drive)
+
+    progress_bar.close()
 
 
 def extract_folder_ids(links_file_path):
@@ -146,24 +204,6 @@ def extract_folder_ids(links_file_path):
             except IndexError:
                 logging.warning(f"Invalid folder link format: {line.strip()}")
     return folder_ids
-
-
-def google_drive_bulk_download(links_file_path, output_directory_path):
-    """
-    Bulk downloads all files from Google Drive folders listed in a file.
-    
-    Args:
-        links_file_path (str): Path to the file containing Google Drive folder links.
-        output_directory_path (str): Path to save downloaded files.
-    """
-    folder_ids = extract_folder_ids(links_file_path)
-    if not folder_ids:
-        logging.error("No valid folder IDs found. Exiting.")
-        return
-
-    for folder_id in folder_ids:
-        logging.info(f"Starting download for folder ID: {folder_id}")
-        download_google_drive_folder(folder_id, output_directory_path)
 
 
 if __name__ == "__main__":
