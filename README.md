@@ -1,4 +1,4 @@
-```markdown
+
 # Google Drive Bulk Downloader
 
 A Python script that automates the process of downloading files and folders from Google Drive. Built using the PyDrive library, this tool allows you to efficiently manage bulk downloads while maintaining folder structures, skipping existing files, and exporting Google Docs/Sheets as PDFs.
@@ -26,7 +26,7 @@ Before using the script, ensure you have the following installed:
   - `pathlib`
 
 Install the dependencies using pip:
-
+```markdown
 ```bash
 pip install pydrive pathlib
 ```
