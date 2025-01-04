@@ -28,7 +28,6 @@ Before using the script, ensure you have the following installed:
 Install the dependencies using pip:
 
 ```bash
-```markdown
 pip install pydrive pathlib
 ```
 
