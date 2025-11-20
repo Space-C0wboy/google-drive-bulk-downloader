@@ -1,5 +1,5 @@
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
 from pathlib import Path
 import logging
 from datetime import datetime
@@ -21,6 +21,7 @@ logging.basicConfig(
 # Paths to be customized by the user
 LINKS_FILE_PATH = r'./download_links.txt'  # Path to the file containing Google Drive folder links
 OUTPUT_DIRECTORY_PATH = r'./Downloaded_Files'  # Output directory for downloaded files
+CREDENTIALS_FILE_PATH = r'./credentials.json' # Path to the file containing credentials downloaded from Google Cloud Console
 
 # Global progress bar
 progress_bar = None
@@ -33,21 +34,26 @@ def authenticate_drive():
     Returns:
         GoogleDrive: Authenticated GoogleDrive object.
     """
+    authsettings = {
+        "client_config_file": CREDENTIALS_FILE_PATH
+    }
     try:
-        gauth = GoogleAuth()
-
+        gauth = GoogleAuth(settings = authsettings)
         # Try to load saved credentials
-        if Path("credentials.json").exists():
-            gauth.LoadCredentialsFile("credentials.json")
+        if Path(CREDENTIALS_FILE_PATH).exists():
+            try:
+                gauth.LoadCredentialsFile(CREDENTIALS_FILE_PATH)
+            except: # Credentials file exists but is invalid - likely to be sourced from Google Cloud Console
+                # Authenticate and save credentials for the first time
+                logging.info("Credentials file is new/invalid. Attempting first-time auth.")
+                gauth.LocalWebserverAuth()
+                gauth.SaveCredentialsFile(CREDENTIALS_FILE_PATH)
             if gauth.credentials is None or gauth.access_token_expired:
                 gauth.Refresh()  # Refresh expired credentials
             else:
                 gauth.Authorize()
         else:
-            # Authenticate and save credentials for the first time
-            gauth.LocalWebserverAuth()
-            gauth.SaveCredentialsFile("credentials.json")
-
+            raise Exception(f"Credentials file {CREDENTIALS_FILE_PATH} does not exist.")
         logging.info("Authentication successful.")
         return GoogleDrive(gauth)
     except Exception as e:

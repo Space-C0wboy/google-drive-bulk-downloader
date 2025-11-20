@@ -1,7 +1,7 @@
 
 # Google Drive Bulk Downloader
 
-A Python script that automates the process of downloading files and folders from Google Drive. Built using the PyDrive library, this tool allows you to efficiently manage bulk downloads while maintaining folder structures, skipping existing files, and exporting Google Docs/Sheets as PDFs.
+A Python script that automates the process of downloading files and folders from Google Drive. Built using the PyDrive2 library, this tool allows you to efficiently manage bulk downloads while maintaining folder structures, skipping existing files, and exporting Google Docs/Sheets as PDFs.
 
 ---
 
@@ -22,13 +22,13 @@ Before using the script, ensure you have the following installed:
 
 - Python 3.6 or later
 - Required Python libraries:
-  - `pydrive`
+  - `pydrive2`
   - `pathlib`
 
 Install the dependencies using pip:
 
 ```bash
-pip install pydrive pathlib
+pip install pydrive2 pathlib
 ```
 
 ---
@@ -50,6 +50,7 @@ pip install pydrive pathlib
 2. Customize the following paths in the script:
    - **`LINKS_FILE_PATH`**: Path to the text file containing Google Drive folder links.
    - **`OUTPUT_DIRECTORY_PATH`**: Path where downloaded files will be saved.
+   - **`CREDENTIALS_FILE_PATH`**: Path to the file containing Google Cloud's JSON credentials.
 
 ---
 
@@ -124,6 +125,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Acknowledgments
 
-- [PyDrive Documentation](https://pythonhosted.org/PyDrive/)
+- [PyDrive2 Documentation](https://docs.iterative.ai/PyDrive2/)
 - [Google Drive API](https://developers.google.com/drive)
 ```
